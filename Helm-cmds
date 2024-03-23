@@ -1,0 +1,72 @@
+#helm commands
+
+#add charts from url with that "name" that represents the list of charts
+helm repo add <name> <url>
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+helm repo update <name> 
+
+helm repo update prometheus-community 
+
+#list the repos you have "locally"
+helm repo list
+
+#search for a particular helm chart
+helm repo search <name>
+
+#search 
+helm search hub <name>
+#search the versions of published charts in the repo
+helm search hub prometheus-community
+
+helm install <name> <latest version of chart> 
+
+helm install prometheus prometheus-community/kube-prometheus-stack
+
+#list the charts
+helm list
+
+#getting the service
+helm get service <service name>
+
+#NOTE using K not helm cmd to get service
+kubectl get service prometheus-operated
+
+#forward port
+kubectl port-forward service/prometheus-operated 8080:9090
+
+#uninstall charts
+helm uninstall <name>
+
+helm uninstall prometheus
+
+
+## quick script to install and uninstall prometheus
+
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm search hub prometheus-community
+helm search hub prometheus-community|grep stack
+helm repo search prometheus-community
+helm search repo prometheus-community|grep -i stack
+helm install prometheus prometheus-community/kube-prometheus-stack
+k get svc
+k port-forward service/prometheus-operatord 8080:9090
+
+look at browser http://localhost:8080
+
+helm uninstall prometheus
+
+helm ls -A
+helm uninstall -n <namespace> <name of helm chart>
+
+helm uninstall -n team-yellow devserver
+
+
+
+
+
+
+
+
