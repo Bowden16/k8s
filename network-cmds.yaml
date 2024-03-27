@@ -1,0 +1,10 @@
+#network service and ingress cmds
+
+apiVersion:
+kind:
+metadata:
+  name:
+  namespace:
+  labels:
+    app: web-v1
+spec:
