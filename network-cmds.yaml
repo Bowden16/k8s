@@ -1,5 +1,20 @@
 #network service and ingress cmds
 
+# check network policy agent
+#look for calico, weave, antrea which indicate network controller installed
+k get pods -A
+
+#check connectivity with curl in pod
+k -n namespace1 exec podname -- curl ipaddress 
+
+k -n namespace1 exec podname -- curl -s -m 1 ipaddress
+
+#get network policies and which namespace it applies to 
+k get netpol -A
+
+
+
+---
 apiVersion:
 kind:
 metadata:
