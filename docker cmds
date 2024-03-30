@@ -1,0 +1,19 @@
+#docker build image, note the . behind!!!
+docker build -t <tagname:version> .
+
+#docker ls image
+docker ls
+
+#docker ls running container
+docker ps 
+docker container ls
+
+#run docker image
+docker run -d -p 80:3000 <docker image name>
+
+#get logs
+docker ps
+docker logs <container name>
+
+#save docker image
+docker save -o <imagename.tar> <dockerimagename:1.0.0>
