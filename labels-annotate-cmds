@@ -1,0 +1,46 @@
+# label a pod
+k label pod nginx tier=frontend env=prod app=miracle
+k run tmp --image nginx --labels=env=prod
+
+#show labels
+k get pods --show-labels
+
+#remove label
+k label pod nginx tier-
+
+# label selection from cmd - frontend and prod
+k get pods -l tier=frontend,env=prod --show-labels
+
+# select label with key only
+k get pods -l version   
+
+# set based selection, ie fall within that "group"
+k get pods -l 'tier in (frontend, backend), env=dev' --show-labels
+
+# select pods that network policy applies to based on label
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: network-policy-frontend
+spec:
+  podSelector:
+    matchLabels:
+      tier: frontend
+...
+
+#annotate a pod
+k annotate pod nginx commit="ffd3ifj" branch="nt/cbank"
+
+#removing annotation
+k annotate pod nginx commit-
+
+#read annotation
+kd pods mypod
+
+#render the surronding 3 lines of yaml of all pods
+k get pods -o yaml | grep -C 3 'annotations:'
+
+
+
+
+
