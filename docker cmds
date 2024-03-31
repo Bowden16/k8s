@@ -17,3 +17,7 @@ docker logs <container name>
 
 #save docker image
 docker save -o <imagename.tar> <dockerimagename:1.0.0>
+
+#restore a docker image
+docker load --input <imagename.tar>
+
