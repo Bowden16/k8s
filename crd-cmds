@@ -1,0 +1,9 @@
+#crd cmds
+#get crds
+k get crds
+
+#create crd
+ka -f backup.yaml
+
+
+
