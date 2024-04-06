@@ -1,0 +1,5 @@
+# search for resource limits in doc
+
+# find out quota
+kc <ns>
+kd resourcequota |less
