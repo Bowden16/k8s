@@ -1,0 +1,11 @@
+# create service with port and target port 80
+k create service clusterip app --tcp=80:80 $do > app-s.yaml
+
+# create deployment with nginx, open port 80 
+k create deployment app --image nginx:1.23.4-alpine --port 80 $do > app-d.yaml
+
+# create tmp pod with image alpine, install curl 
+k run tmp --image alpine --restart=Never $do > tmp.yaml -- /bin/sh -c "while true; do sleep 2d;done"
+k exec tmp -it -- /bin/sh
+apk add curl
+curl <ip>:80
