@@ -8,3 +8,15 @@ k set image deployment <deployment name> nginx=nginx:1.23.4
 # updated change revision with msg "update patch"
 k annotate deployment nginx kubernetes.io/change-cause="update patch"
 
+# verify revision note
+k rollout history deployment <deployment name>
+# look from bottom for the latest update
+
+# scale deployment out to 5 replicas
+k scale deployment nginx --replicas 5
+
+# rollback to revision 2
+k rollout undo deployment nginx --to-revision=2
+
+# check the revision details
+k rollout history deployment nginx --revision 2
