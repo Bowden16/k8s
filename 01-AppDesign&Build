@@ -1,0 +1,77 @@
+# docker build with specified dockerfile location and location of files
+docker build -t ckad:pluralsight -f ./Buildfiles/Containerfile1 .App
+
+# view locally stored images, either below commands, note for ls use image not images no s
+docker images 
+docker image ls
+
+# convert image in local repo to OCI archive ie. save the image to file
+# docker save <image> -o <imagefile.tar>
+docker save ckad:plurasight -o image.tar
+
+# compress file to gzip
+docker save ckad:pluralsight | gzip > image.zip
+# or
+# podman save --format oci-archive ckad:pluralsight | gzip > image.zip
+
+# rename image 
+docker image tag ckad:pluralsight nigelpoulton/ckad:prod
+docker image ls
+
+# remove image
+docker image rmi ckad:pluralsight
+
+# push image to docker hub 
+# must login to dockerhub first
+docker image push nigelpoulton/ckad:prod
+
+# Build an OCI image from Dockerfile.dev and tagged as ckad:ps1 getting related files from App2 folder
+docker image build -t ckad:ps1 -f Buildfiles/Dockerfile.dev ./App2
+
+# Build to internal repo 
+docker image build -t internal-reg.io/dev-fe/ckad:ps2 -f Buildfiles/Dockerfile ./App2
+
+# download a official alpine image to local repo
+docker image pull alpine:latest
+# or
+# docker pull alpine:3.15.4
+
+# save docker image 
+docker save internal-reg.io/dev-fe/ckad:ps2 -o ckad-ps2.tar
+
+# remove docker image
+docker image rm alpine:3.15.4
+# or
+docker rmi alpine:latest
+docker images
+
+# build from buildfile.ckad, files in ./dev/ckad and store in local registry internal-reg.io under repo ckad-dev 
+docker image build -f Buildfiles/buildfile.ckad ./dev/ckad -t internal-reg.io/ckad-dev/ckad:ps3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,10 @@
+# get deployment rollout history
+# eg. k rollout history deployment nginx
+k rollout history deployment <deployment name>
+
+# update an image
+k set image deployment <deployment name> nginx=nginx:1.23.4
+
+# updated change revision with msg "update patch"
+k annotate deployment nginx kubernetes.io/change-cause="update patch"
+
