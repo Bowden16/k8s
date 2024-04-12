@@ -20,3 +20,69 @@ k rollout undo deployment nginx --to-revision=2
 
 # check the revision details
 k rollout history deployment nginx --revision 2
+
+# create nginx blue deployment with 3 replicas and containerPort at 80
+k create deployment nginx-blue --image nginx:1.23.0 --replicas 3 --port 80 $do > n.blue.yaml
+# edit label to version: blue
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      version: blue <<< edit here!
+  template:
+    metadata:
+      labels:
+        version: blue <<< edit here!
+    spec:
+      containers:
+      - image: nginx:1.23.0
+        name: nginx
+        ports:
+        - containerPort: 80
+
+# create service and query nginx server version 
+k create service clusterip nginx --tcp=80:80 $do > s.yaml
+# edit selector in s.yaml to version: blue
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  selector:
+    version: blue <<< edit here!
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+# create tmp pod to query the service nginx-blue
+k run tmp --image alpine/curl:8.5.0 --restart=Never -it --rm -- curl -m 1 -sI nginx.default.svc.cluster.local | grep -i server
+
+# create nginx-green deployment with nginx 1.23.4 
+# copy and edit nginx-blue deployment to nginx-green, version: green and nginx version to 1.23.4
+
+# monitor the change from blue to green deployment, -sI means silent and fetch headers only -m 1 is timeout max 1 second
+while true; do curl -m 1 -sI nginx.default.svc.cluster.local | grep -i server;sleep 1.5s;done;
+# NOTE: need to query "inside" the cluster cannot from laptop client which is outside the cluster so to speak
+
+# edit service from blue to green
+k edit service nginx
+# change version: blue to version: green
+
+
+
+
+
+
+
+
+
+
+
+
