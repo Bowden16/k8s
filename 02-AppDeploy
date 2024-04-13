@@ -75,6 +75,42 @@ while true; do curl -m 1 -sI nginx.default.svc.cluster.local | grep -i server;sl
 k edit service nginx
 # change version: blue to version: green
 
+# helm refer to Helm-cmds.yaml
+
+# create a nodeport and access it from outside the cluster
+# create deployment
+k create deployment nginx-deploy --image nginx:stable-alpine --replicas 3 --port 80 $do > n.yaml
+
+#create service, IMPORTANT >>> change the selector to be the same as the label in deployment 
+k create service nodeport nginx-svc --tcp=9000:80 $do > s.yaml
+
+# from local laptop, test to reach nginx-svc
+curl -sI localhost:31823 |grep -i server
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
