@@ -1,0 +1,6 @@
+# Setup autocompletion of cmds
+# install autocompletion package
+https://kubernetes.io/docs/reference/kubectl/generated/kubectl_completion/
+
+# setup automcompletion
+https://kubernetes.io/docs/reference/kubectl/quick-reference/
