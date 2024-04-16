@@ -1,0 +1,810 @@
+#container
+docker build -t nodejs:1.0.0 .
+docker build -t nodejs:1.0.0 -f ./app1/build/Dockerfile
+docker images
+docker run -d -p 80:3000 nodeja:1.0.0
+docker container ls
+curl localhost
+wget -O- localhost
+docker logs <container hash>
+docker save -o nodeja-1.0.0.tar nodejs:1.0.0
+docker immport 
+
+#pod
+k create ns ckad
+k run mypod --image nginx:1.23.0 --restart=Never --port 80 -n ckad $do >pod.yaml
+k get pods
+kd pod mypod -n ckad
+k edit pod mypod -n ckad
+k get pods -A 
+k exec mypod -it $do > mypod.yaml -- /bin/sh -c "while true;do curl -m 1 -sI localhost:80;sleep 1s;done;"
+k run tmp --image nginx:alpine --rm -it -- curl -m 1 -sI <ip>:80 |grep -i server
+curl -k svcname.namespace.svc.cluster.local/pods 
+k logs mypod 
+
+#job
+#search job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: random-hash
+spec:
+  parallelism: 2
+  completions: 5
+  backoffLimit: 4
+  template:
+    spec:
+      containers:
+      - name: random-hash
+        image: alpine:3.17.3
+        command: ["/bin/sh", "-c", "echo $RANDOM | base64 | head -c 20"]
+      restartPolicy: Never
+k get job
+k delete job <jobname>
+
+#cronjob
+k create cronjob cj1 --schedule="* * * * *" --image nginx:1.23.0 -- /bin/sh -c 'echo "Current Date: $(date)"'
+k get jobs --watch
+k get pods --show-labels
+k get cronjobs cj1 -o yaml
+k delete cronjob cj1
+
+#ephemeral volume
+k create ns t23
+k run mypod --image nginx:1.23.0 -n t23 $do>pod.yaml
+#search for volume and emptydir
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: h92
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.21.6
+    securityContext:
+      readOnlyRootFilesystem: true # <<< search for volume securitycontext
+    volumeMounts:
+    - name: nginx-run
+      mountPath: /var/run
+    - name: nginx-cache
+      mountPath: /var/cache/nginx
+    - name: nginx-data
+      mountPath: /usr/local/nginx
+  volumes:
+  - name: nginx-run
+    emptyDir: {}
+  - name: nginx-data
+    emptyDir: {}
+  - name: nginx-cache
+    emptyDir: {}
+
+#persistentvolume
+#search for persistentvolume
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv
+spec:
+  capacity:
+    storage: 512Mi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: /data/config
+
+ka pv.yaml
+
+vi pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 256Mi
+
+#initcontainer
+#search for initcontainer
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  name: business-app
+spec:
+  initContainers: # <<< 
+  - name: configurer # <<<
+    image: busybox # <<<
+    command: # <<<
+    - wget # <<<
+    - "-O" # <<<
+    - "/usr/shared/app/config.json" # <<<
+    - https://raw.githubusercontent.com/bmuschko/ckad-crash-course/master/exercises/07-init-container/app/config/config.json # <<<
+    volumeMounts: # <<<
+    - name: configdir # <<<
+      mountPath: "/usr/shared/app" # <<<
+  containers:
+  - image: bmuschko/nodejs-read-config:1.0.0
+    name: web
+    ports:
+    - containerPort: 8080
+    volumeMounts:
+    - name: configdir
+      mountPath: "/usr/shared/app"
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+  volumes:
+  - name: configdir
+    emptyDir: {}
+status: {}
+
+#adapter pattern
+kubectl run adapter --image=busybox -o yaml --dry-run=client --restart=Never -- /bin/sh -c 'while true; do echo "$(date) | $(du -sh ~)" >> /var/logs/diskspace.txt; sleep 5; done;' > adapter.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  name: adapter
+spec:
+  volumes:
+    - name: config-volume
+      emptyDir: {}
+  containers:
+  - args:
+    - /bin/sh
+    - -c
+    - 'while true; do echo "$(date) | $(du -sh ~)" >> /var/logs/diskspace.txt; sleep 5; done;'
+    image: busybox
+    name: app
+    volumeMounts:
+      - name: config-volume
+        mountPath: /var/logs
+    resources: {}
+  - image: busybox
+    name: transformer
+    args:
+    - /bin/sh
+    - -c
+    - 'sleep 20; while true; do while read LINE; do echo "$LINE" | cut -f2 -d"|" >> $(date +%Y-%m-%d-%H-%M-%S)-transformed.txt; done < /var/logs/diskspace.txt; sleep 20; done;'
+    volumeMounts:
+      - name: config-volume
+        mountPath: /var/logs
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+
+#ambassador pattern
+k create ns ext-access
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rate-limiter
+  namespace: ext-access
+spec:
+  containers:
+  - name: business-app
+    image: bmuschko/nodejs-business-app:1.0.0
+    ports:
+    - containerPort: 8080
+  - name: ambassador # <<< side in containers: not initContainers: (unlike doc which uses restartPolicy: true to indicate as sidecar) 
+    image: bmuschko/nodejs-ambassador:1.0.0
+    ports:
+    - containerPort: 8081
+  restartPolicy: Never
+
+
+#labels and annotations
+k run frontend --image=nginx:1.23.0 --labels=env=prod,team=shiny $do >f.yaml
+#annotate a pod
+k annotate pod nginx commit="ffd3ifj" branch="nt/cbank"
+#removing annotation
+k annotate pod nginx commit-
+#read annotation
+kd pods mypod
+#render the surronding 3 lines of yaml of all pods
+k get pods -o yaml | grep -C 3 'annotations:'
+#get pods that meet one or another's label AND env is prod
+k get pods -l 'team in (shiny,legacy)',env=prod --show-labels
+#remove label
+k label pod backend env- 
+#grep commands surrounding the word annotations
+k get pods -o yaml |grep -i -C 3 annotate
+
+#deployment rolling update
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels: # <<< different, this is label for deployment
+    tier: backend # <<< different, this is label for deployment
+spec:
+  replicas: 3
+  selector: # <<< within deployment spec
+    matchLabels: # <<< select pods matching this label
+      app: v1 # <<< select pods matching this label (must be the same as below template's label else error)
+  template:
+    metadata:
+      labels: # <<< within pod template
+        app: v1
+    spec:
+      containers:
+      - image: nginx:1.23.0
+        name: nginx
+
+#set or update image version
+k set image deployment/nginx nginx=nginx:1.23.4
+
+k rollout history deployment nginx
+k rollout history deployment nginx --revision=2
+k rollout undo deployment nginx --to-revision=1
+
+#annotate change
+k annotate deployment nginx kubernetes.io/change-cause="Patch to version 1.23.4"
+k rollout history deployment nginx
+k scale deployment nginx --replicas 5
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: nginx-deployment
+ labels:
+   app: nginx
+spec:
+ replicas: 3
+ selector:
+   matchLabels:
+     app: nginx
+ template:
+   metadata:
+     labels:
+       app: nginx
+   spec:
+     containers:
+     - name: nginx
+       image: nginx:1.14.2
+       ports:
+       - containerPort: 80
+ strategy:
+   type: RollingUpdate # <<< if Recreate, Pods killed before new ones are created
+   rollingUpdate:
+     maxSurge: 3 # max new pods 3
+#old pods can scaled down by 2 of desired Pods immediately when rolling update starts
+     maxUnavailable: 2 # anytime only max 2 unavailable
+
+#horizontal pod autoscaling
+k create deployment nginx --image nginx $do > n.yaml 
+
+# imperative create , note --cpu-percent is different from averageUtilization
+kubectl autoscale deployment php-apache --cpu-percent=50 --min=1 --max=10
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx # <<< must match deployment name
+  minReplicas: 3
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 75
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 60
+
+#blue green deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      version: blue
+  template:
+    metadata:
+      labels:
+        version: blue
+    spec:
+      containers:
+      - image: nginx:1.23.0
+        name: nginx
+        ports:
+        - containerPort: 80
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  selector:
+    version: blue # <<< select blue or green deployment
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+#canary 
+
+#helm
+helm repo add <release name, ie name given> <chart repo ie. url>
+helm repo update <release name ie. name given>
+$ helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+"prometheus-community" has been added to your repositories
+
+$ helm repo update prometheus-community
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "prometheus-community" chart repository
+Update Complete. ⎈Happy Helming!⎈
+
+#search in repo prometheus-community
+helm search hub prometheus 
+helm install prometheus prometheus-community/kube-prometheus-stack
+helm list
+k get service prometheus-operated
+k port-forward service/prometheus-operate 8080:9090
+helm uninstall prometheus
+
+#api deprecation
+k api-versions
+
+#grep versions similiar to yaml's apiVersion: 
+#eg. apiVersion: apps/v1beta2
+
+#remove the beta to be same as shown in api-versions 
+#ie. update to the newer version
+#kubectl apply and get clues from error message returned
+#update yaml to correct or update or add what is needed for new version
+
+#pod probes
+#search for readiness probe 
+
+
+readinessProbe:
+  exec:
+    command:
+    - cat
+    - /tmp/healthy # <<< cat until file exist indicating it's ready
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: hello
+  name: hello
+spec:
+  containers:
+  - image: bmuschko/nodejs-hello-world:1.0.0
+    name: hello
+    ports:
+    - name: nodejs-port
+      containerPort: 3000
+    readinessProbe:
+      httpGet:
+        path: /
+        port: nodejs-port
+      initialDelaySeconds: 2
+    livenessProbe:
+      httpGet:
+        path: /
+        port: nodejs-port
+      initialDelaySeconds: 5
+      periodSeconds: 8
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+
+#pod metrics
+k create ns stress-testing
+k top pods -n stress-testing
+# get metrics from to know which consume most memory 
+# require metrics server to be setup
+$ kubectl top pods -n stress-test
+NAME       CPU(cores)   MEMORY(bytes)
+stress-1   50m          77Mi
+stress-2   74m          138Mi
+stress-3   58m          94Mi
+
+#troubleshooting
+k logs <pod name> 
+k events
+k describe pod <podname> 
+
+$ kubectl debug -it date-recorder --image=busybox --target=debian --share-processes
+Targeting container "debian". If you don't see processes from this container it may be because the container runtime doesn't support this feature.
+Defaulting debug container name to debugger-rns89.
+If you don't see a command prompt, try pressing enter.
+/ # ps
+PID   USER     TIME  COMMAND
+    1 root      4:21 /nodejs/bin/node -e const fs = require('fs'); let timestamp = Date.now(); fs.writeFile('/root/tmp/startup-m
+   35 root      0:00 sh
+   41 root      0:00 ps
+
+#crd
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: backups.example.com
+spec:
+  group: example.com
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              cronExpression:
+                type: string
+              podName:
+                type: string
+              path:
+                type: string
+  scope: Namespaced
+  names:
+    kind: Backup
+    singular: backup
+    plural: backups
+    shortNames:
+    - bu
+
+#create crd
+ka backup-resource.yaml
+
+$ kubectl get crd backups.example.com
+NAME                  CREATED AT
+backups.example.com   2023-05-24T15:11:15Z
+
+$ kubectl describe crd backups.example.com
+...
+
+#create yaml manifest that uses crd
+apiVersion: example.com/v1
+kind: Backup
+metadata:
+  name: nginx-backup
+spec:
+  cronExpression: "0 0 * * *"
+  podName: nginx
+  path: /usr/local/nginx
+
+#create the crd object ie. backup object
+ka backup.yaml
+
+$ kubectl get backups
+NAME           AGE
+nginx-backup   24s
+
+$ kubectl describe backup nginx-backup
+...
+
+#rbac role rolebinding clusterrole clusterrolebinging serviceaccount
+k create ns t23
+k creates sa mysa -n t23
+k run mypod --image nginx:alpine -n t23 $do > p.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: service-list
+  namespace: t23
+spec:
+  serviceAccountName: api-call
+  containers:
+  - name: service-list
+    image: alpine/curl:3.14
+    command: ['sh', '-c', 'while true; do curl -s -k -m 5 -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+    https://kubernetes.default.svc.cluster.local/api/v1/namespaces/default/services; sleep 10; done']
+curl -sk -m 1 -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+
+# https://kubernetes.default.svc.cluster.local/api/v1/namespaces/default/services
+
+k logs <pod name> -n t23
+
+k create clusterrole list-role --verb list --resources services 
+k create clusterrolebinding --role list-role --serviceaccount default:api-call 
+
+#resource requests limits
+k run hello --image nginx:stable-alpine --port 80
+
+#search for resources
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello
+spec:
+  containers:
+  - image: bmuschko/nodejs-hello-world:1.0.0
+    name: hello
+    ports:
+    - name: nodejs-port
+      containerPort: 3000
+    volumeMounts:
+    - name: log-volume
+      mountPath: "/var/log"
+    resources: # <<< 
+      requests: # <<< 
+        cpu: 100m # <<< 
+        memory: 500Mi # <<< 
+        ephemeral-storage: 1Gi # <<< 
+      limits: # <<< 
+        memory: 500Mi # <<< 
+        ephemeral-storage: 2Gi # <<< 
+  volumes:
+  - name: log-volume
+    emptyDir: {}
+
+#resourcequota
+#search resource quota
+#managing total resource use within a namespace
+#use limitrange for pods or containers
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: mem-cpu-demo
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+
+# quota applies to specific namespace including default namespace
+k create quota myquota --hard=cpu=2,memory=2Gi,pods=2
+k get quota
+kd quota -n t23 # quota is specific to namespace
+
+#limitrange
+#search for limitrange which applies to pods or containers
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: d92
+---
+apiVersion: v1
+kind: LimitRange # <<< 
+metadata:
+  name: cpu-limit-range
+  namespace: d92
+spec:
+  limits:
+  - min:
+      cpu: 200m
+    max:
+      cpu: 500m
+    type: Container
+
+#configmap
+k create cm myconfig --from-file=app-config.yaml
+k create cm myconfig --from-literal=app-name=web
+
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: backend
+  name: backend
+spec:
+  containers:
+  - image: nginx:1.23.4-alpine
+    name: backend
+    volumeMounts:
+    - name: config-volume # <<< same name as volumemMounts:
+      mountPath: /etc/config
+  volumes:
+  - name: config-volume # <<< same name as volumemMounts:
+    configMap:
+      name: app-config # <<< use k get cm to get cm name
+
+#secret
+k create secret generic mysecret --from-literal=key1=something,key2=password
+k get secret mysecret -o yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: backend
+  name: backend
+spec:
+  containers:
+  - image: nginx:1.23.4-alpine
+    name: backend
+    env:
+      - name: DB_PASSWORD # <<< env
+        valueFrom:
+          secretKeyRef:
+            name: db-credentials # <<< use k get secret to get name 
+            key: db-password  # <<< key inside the secret
+
+#securityContext:
+#search for securitycontext
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox-security-context
+spec:
+  securityContext: # <<<
+    runAsUser: 1000 # <<<
+    runAsGroup: 3000 # <<<
+    fsGroup: 2000 # <<<
+  containers:
+  - name: busybox
+    image: busybox:1.28
+    command: ["sh", "-c", "sleep 1h"]
+    volumeMounts:
+    - name: vol
+      mountPath: /data/test
+    securityContext: # <<<
+      allowPrivilegeEscalation: false # <<<
+  volumes:
+  - name: vol
+    emptyDir: {}
+
+#service
+k create service clusterip mysvc --tcp=80:80 $do >s.yaml
+k create deployment mydeploy --image nginx $do > d.yaml -- /bin/sh -c "sleep 2d"
+k expose deployment mydeploy --type ClusterIP --port 80 --target-port 80
+k edit service mysvc
+#change to NodePort from ClusterIP
+#nodePort: 30080
+
+#use selector in service to specify the label to use
+
+#troubleshoot service
+k get ep 
+kd 
+k events
+k logs 
+#check name typo, ports, endpoints
+#check label type error
+#label not correct, port not correct so so response
+
+#ingress
+k create deployment myd --image nginx $do >pod.yaml
+ka pod.yaml 
+k expose deployment myd --type ClusterIP --port 3000
+
+#ingress is about specifying "rules", it's at layer 7
+#can't see ingress from k get services because it's not at service level
+#can relate it to nginx or haproxy that uses rules to direct traffic
+
+#network policy
+#search for network policy
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-networkpolicy
+  namespace: k2
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              role: consumer
+      ports: # <<< AND with port 80 or OR! TAKE NOTE!
+        - protocol: TCP
+          port: 80
+
+
+### SPECIALS
+readOnlyRootFilesystem:
+allowPrivilegeEscalation:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
